@@ -29,12 +29,20 @@ create table lab_3.wypozyczenia
 (
 	wypozyczenia_id     INTEGER         primary key,
     czytelnik_id        INTEGER         not null,
-    ksiazka_id          INTEGER         not null,
     data_wypozyczenia   DATE            not null,
     data_zwrotu         DATE            check (data_zwrotu > data_wypozyczenia OR data_zwrotu IS NULL),
 
-    constraint wypozyczenia_czytelnik_fk FOREIGN key (czytelnik_id) REFERENCES lab_3.czytelnik(czytelnik_id),
-    constraint wypozyczenia_ksiazka_fk FOREIGN key (ksiazka_id) REFERENCES lab_3.ksiazka(ksiazka_id)
+    constraint wypozyczenia_czytelnik_fk FOREIGN key (czytelnik_id) REFERENCES lab_3.czytelnik(czytelnik_id)
+);
+
+create table lab_3.wypozyczenia_ksiazka
+(
+	wypozyczenia_id     INTEGER         not null,
+    ksiazka_id          INTEGER         not null,
+
+    constraint wypozyczenia_ksiazka_wypozyczenia_fk FOREIGN key (wypozyczenia_id) REFERENCES lab_3.wypozyczenia(wypozyczenia_id),
+    constraint wypozyczenia_ksiazka_ksiazka_fk FOREIGN key (ksiazka_id) REFERENCES lab_3.ksiazka(ksiazka_id),
+    primary key (wypozyczenia_id, ksiazka_id)
 );
 
 insert into lab_3.czytelnik (czytelnik_id, imie, nazwisko)
@@ -44,7 +52,7 @@ values
     (3, 'Tomasz', 'Zieliński'),
     (4, 'Magdalena', 'Wiśniewska');
 
-insert into  lab_3.ksiazka (ksiazka_id, autor_imie, autor_nazwisko, tytul, cena, rok_wydania, ilosc_egzemplarzy)
+insert into lab_3.ksiazka (ksiazka_id, autor_imie, autor_nazwisko, tytul, cena, rok_wydania, ilosc_egzemplarzy)
 values
     (1, 'Adam', 'Mickiewicz', 'Pan Tadeusz', 150.00, 2000, 5),
     (2, 'Henryk', 'Sienkiewicz', 'Potop', 120.50, 1999, 3),
@@ -58,16 +66,26 @@ values
     (2, 15, 30),
     (3, 31, 60);
 
-insert into lab_3.wypozyczenia (wypozyczenia_id, czytelnik_id, ksiazka_id, data_wypozyczenia, data_zwrotu)
+insert into lab_3.wypozyczenia (wypozyczenia_id, czytelnik_id, data_wypozyczenia, data_zwrotu)
 values
-    (1, 1, 1, '2024-01-01', '2024-01-08'),
-    (2, 2, 2, '2024-01-05', NULL),
-    (3, 3, 3, '2024-01-10', '2024-01-20'),
-    (4, 4, 4, '2024-01-15', NULL);
+    (1, 1, '2024-01-01', '2024-01-08'),
+    (2, 2, '2024-01-05', NULL),
+    (3, 3, '2024-01-10', '2024-01-20'),
+    (4, 4, '2024-01-15', NULL);
 
---nazwiska czytelnika  i numery wypożyczeń  wszystkich czytelników w kolejności alfabetycznej.
+insert into lab_3.wypozyczenia_ksiazka (wypozyczenia_id, ksiazka_id)
+values
+    (1, 1),
+    (2, 2),
+    (3, 3),
+    (4, 4);
+
 select c.nazwisko, w.wypozyczenia_id
 from lab_3.czytelnik c
 join lab_3.wypozyczenia w ON c.czytelnik_id = w.czytelnik_id
 order by c.nazwisko;
 
+select k.tytul
+from lab_3.ksiazka k
+join lab_3.wypozyczenia_ksiazka wk ON k.ksiazka_id = wk.ksiazka_id
+where wk.wypozyczenia_id = 1;
