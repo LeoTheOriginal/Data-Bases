@@ -118,7 +118,7 @@ insert into lab_5.wypozyczenia (wypozyczenia_id, czytelnik_id, data_wypozyczenia
 	    (10, 10, '2024-02-15', '2024-02-22'),
 	    (11, 11, '2024-02-20', '2024-02-27'),
         (12, 12, '2024-02-25', '2024-03-04'),
-        (13, 13, '2024-03-01', '2024-03-08'),
+        (13, 13, '2024-03-01', '2024-03-03'),
         (14, 14, '2024-03-05', '2024-03-12'),
         (15, 15, '2024-03-10', '2024-03-17'),
         (16, 16, '2024-03-15', '2024-03-22'),
@@ -230,9 +230,32 @@ GROUP BY c.imie, c.nazwisko;
 
 --czytelników,, którzy przetrzymują książki powyżej średniej (chodzi o ilość dni ) (imię , nazwisko) -->dotyczy zakończonych wypożyczeń
 SELECT c.imie, c.nazwisko
+FROM lab_5.czytelnik c
+JOIN lab_5.wypozyczenia w ON c.czytelnik_id = w.czytelnik_id
+WHERE w.data_zwrotu IS NOT NULL AND DATE_PART('day', w.data_zwrotu::timestamp - w.data_wypozyczenia::timestamp) > (
+    SELECT AVG(DATE_PART('day', w.data_zwrotu::timestamp - w.data_wypozyczenia::timestamp))
+    FROM lab_5.wypozyczenia w
+    WHERE w.data_zwrotu IS NOT NULL
+);
 
 
 --dla każdego czytelnika, najdłuższe przetrzymanie
-
+SELECT c.imie, c.nazwisko, (
+    SELECT MAX(DATE_PART('day', w2.data_zwrotu::timestamp - w2.data_wypozyczenia::timestamp))
+    FROM lab_5.wypozyczenia w2
+    JOIN lab_5.czytelnik c on c.czytelnik_id = w2.czytelnik_id
+    WHERE w2.czytelnik_id = c.czytelnik_id
+) AS max_days
+FROM lab_5.czytelnik c
+JOIN lab_5.wypozyczenia w ON c.czytelnik_id = w.czytelnik_id
+GROUP BY c.imie, c.nazwisko;
 
 --czytelników, którzy nigdy nie przetrzymali książki (imię , nazwisko)
+SELECT c.imie, c.nazwisko
+FROM lab_5.czytelnik c
+WHERE c.czytelnik_id IN (
+    SELECT w.czytelnik_id
+    FROM lab_5.wypozyczenia w
+    WHERE w.data_zwrotu IS NOT NULL
+    AND DATE_PART('day', w.data_zwrotu::timestamp - w.data_wypozyczenia::timestamp) < 7
+);
