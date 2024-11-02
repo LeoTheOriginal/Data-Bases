@@ -214,19 +214,24 @@ HAVING COUNT(DISTINCT wk.wypozyczenia_id) = (
 );
 
 --czytelnika, który pożyczył największą ilość książek w jednym wypożyczeniu  (imię , nazwisko, ilość)
-SELECT c.imie, c.nazwisko, COUNT(wk.ksiazka_id) AS max_books
+SELECT c.imie, c.nazwisko, max_books
 FROM lab_5.czytelnik c
-JOIN lab_5.wypozyczenia w ON c.czytelnik_id = w.czytelnik_id
-JOIN lab_5.wypozyczenia_ksiazka wk ON w.wypozyczenia_id = wk.wypozyczenia_id
-GROUP BY c.imie, c.nazwisko
-ORDER BY max_books DESC
-LIMIT 1;
+JOIN (
+    SELECT w.czytelnik_id, COUNT(wk.ksiazka_id) AS max_books
+    FROM lab_5.wypozyczenia w
+    JOIN lab_5.wypozyczenia_ksiazka wk ON w.wypozyczenia_id = wk.wypozyczenia_id
+    GROUP BY w.czytelnik_id
+    ORDER BY max_books DESC
+    LIMIT 1
+) AS subquery ON c.czytelnik_id = subquery.czytelnik_id;
 
 --procentowy udział wypożyczeń poszczególnego czytelnika we wszystkich wypożyczeniach
-SELECT c.imie, c.nazwisko, COUNT(w.wypozyczenia_id) * 100.0 / (SELECT COUNT(*) FROM lab_5.wypozyczenia) AS percentage
-FROM lab_5.czytelnik c
-JOIN lab_5.wypozyczenia w ON c.czytelnik_id = w.czytelnik_id
-GROUP BY c.imie, c.nazwisko;
+SELECT c.imie, c.nazwisko, (
+    SELECT COUNT(w.wypozyczenia_id) * 100.0 / (SELECT COUNT(*) FROM lab_5.wypozyczenia)
+    FROM lab_5.wypozyczenia w
+    WHERE w.czytelnik_id = c.czytelnik_id
+) AS percentage
+FROM lab_5.czytelnik c;
 
 --czytelników,, którzy przetrzymują książki powyżej średniej (chodzi o ilość dni ) (imię , nazwisko) -->dotyczy zakończonych wypożyczeń
 SELECT c.imie, c.nazwisko
@@ -235,7 +240,7 @@ JOIN lab_5.wypozyczenia w ON c.czytelnik_id = w.czytelnik_id
 WHERE w.data_zwrotu IS NOT NULL AND DATE_PART('day', w.data_zwrotu::timestamp - w.data_wypozyczenia::timestamp) > (
     SELECT AVG(DATE_PART('day', w.data_zwrotu::timestamp - w.data_wypozyczenia::timestamp))
     FROM lab_5.wypozyczenia w
-    WHERE w.data_zwrotu IS NOT NULL
+    WHERE w.data_zwrotu IS NOT NULL AND DATE_PART('day', w.data_zwrotu::timestamp - w.data_wypozyczenia::timestamp) > 7
 );
 
 
