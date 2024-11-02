@@ -1,34 +1,27 @@
--- Usunięcie istniejącego schematu i typów, jeśli istnieją
 DROP SCHEMA IF EXISTS municipal_public_transport CASCADE;
 DROP TYPE IF EXISTS vehicle_type, direction_type, stop_type, day_type;
 
--- Ustawienie formatu daty
 SET DATESTYLE TO EUROPEAN;
 
--- Utworzenie schematu
 CREATE SCHEMA municipal_public_transport;
 
--- Utworzenie typów ENUM
 CREATE TYPE vehicle_type AS ENUM ('bus', 'tram');
 CREATE TYPE direction_type AS ENUM ('outbound', 'inbound'); -- Uproszczono do dwóch kierunków
 CREATE TYPE stop_type AS ENUM ('bus', 'tram', 'bus_and_tram');
 CREATE TYPE day_type AS ENUM ('mon-fri', 'sat', 'sun');
 
--- Tabela 'stop' (Przystanki)
 CREATE TABLE municipal_public_transport.stop (
     stop_id         SERIAL          PRIMARY KEY,
     name            VARCHAR(64)     NOT NULL,
     type            stop_type       NOT NULL
 );
 
--- Tabela 'line' (Linie) z 'vehicle_type' przypisanym do linii
 CREATE TABLE municipal_public_transport.line (
     line_id         SERIAL          PRIMARY KEY,
     line_number     INTEGER         NOT NULL UNIQUE,
     vehicle_type    vehicle_type    NOT NULL
 );
 
--- Tabela 'route' (Trasy) bez 'vehicle_type' i z uproszczonym 'direction_type'
 CREATE TABLE municipal_public_transport.route (
     route_id        SERIAL          PRIMARY KEY,
     line_id         INTEGER         NOT NULL,
@@ -41,18 +34,16 @@ CREATE TABLE municipal_public_transport.route (
     CONSTRAINT route_direction_check CHECK (direction IN ('outbound', 'inbound'))
 );
 
--- Tabela 'stop_in_route' (Przystanki na trasie)
 CREATE TABLE municipal_public_transport.stop_in_route (
     stop_in_route_id    SERIAL          PRIMARY KEY,
     route_id            INTEGER         NOT NULL,
     stop_id             INTEGER         NOT NULL,
     stop_order          INTEGER         NOT NULL,
-    time_offset         INTEGER         NOT NULL, -- Czas w minutach od startu trasy
+    time_offset         INTEGER         NOT NULL,
     CONSTRAINT stop_in_route_route_fk FOREIGN KEY (route_id) REFERENCES municipal_public_transport.route(route_id),
     CONSTRAINT stop_in_route_stop_fk FOREIGN KEY (stop_id) REFERENCES municipal_public_transport.stop(stop_id)
 );
 
--- Tabela 'schedule' (Harmonogramy)
 CREATE TABLE municipal_public_transport.schedule (
     schedule_id     SERIAL          PRIMARY KEY,
     route_id        INTEGER         NOT NULL,
@@ -64,7 +55,6 @@ CREATE TABLE municipal_public_transport.schedule (
                                                                                                                 --Odjazdy z Kurdwanów P+R mogą rozpoczynać się wcześniej lub później, np. od 5:30 do 23:30.
 );
 
--- Tabela 'departure' (Odjazdy)
 CREATE TABLE municipal_public_transport.departure (
     departure_id        SERIAL          PRIMARY KEY,
     stop_in_route_id    INTEGER         NOT NULL,
@@ -75,21 +65,18 @@ CREATE TABLE municipal_public_transport.departure (
     CONSTRAINT departure_unique_constraint UNIQUE (stop_in_route_id, schedule_id, departure_time)
 );
 
--- Tabela 'ticket_type' (Typy Biletów)
 CREATE TABLE municipal_public_transport.ticket_type (
     ticket_type_id  SERIAL          PRIMARY KEY,
-    name            VARCHAR(32)     NOT NULL,  -- np. 'normalny', 'ulgowy'
+    name            VARCHAR(32)     NOT NULL,
     description     TEXT
 );
 
--- Tabela 'discount' (Ulgi)
 CREATE TABLE municipal_public_transport.discount (
     discount_id     SERIAL          PRIMARY KEY,
-    name            VARCHAR(32)     NOT NULL,  -- np. 'studencka', 'senior'
-    percentage      NUMERIC(5,2)    NOT NULL   -- Procent zniżki
+    name            VARCHAR(32)     NOT NULL,
+    percentage      NUMERIC(5,2)    NOT NULL
 );
 
--- Tabela 'ticket' (Bilety)
 CREATE TABLE municipal_public_transport.ticket (
     ticket_id       SERIAL          PRIMARY KEY,
     ticket_type_id  INTEGER         NOT NULL,
@@ -177,7 +164,6 @@ INSERT INTO municipal_public_transport.route (line_id, direction, start_stop_id,
      (SELECT stop_id FROM municipal_public_transport.stop WHERE name = 'Krowodrza Górka'),
      (SELECT stop_id FROM municipal_public_transport.stop WHERE name = 'Mistrzejowice'));
 
--- Trasy dla pozostałych linii (przykładowo dla linii 4)
 INSERT INTO municipal_public_transport.route (line_id, direction, start_stop_id, end_stop_id) VALUES
     ((SELECT line_id FROM municipal_public_transport.line WHERE line_number = 4), 'outbound',
      (SELECT stop_id FROM municipal_public_transport.stop WHERE name = 'Bronowice Małe'),
@@ -186,12 +172,9 @@ INSERT INTO municipal_public_transport.route (line_id, direction, start_stop_id,
      (SELECT stop_id FROM municipal_public_transport.stop WHERE name = 'Wzgórza Krzesławickie'),
      (SELECT stop_id FROM municipal_public_transport.stop WHERE name = 'Bronowice Małe'));
 
--- Podobnie dodaj trasy dla pozostałych linii...
+-- Tu mozna dodać więcej tras dla pozostałych linii...
 
 
-
-
--- Przystanki dla trasy 'outbound' linii 1
 INSERT INTO municipal_public_transport.stop_in_route (route_id, stop_id, stop_order, time_offset) VALUES
     -- Pobieramy route_id dla linii 1 i kierunku 'outbound'
     ((SELECT route_id FROM municipal_public_transport.route WHERE line_id = (SELECT line_id FROM municipal_public_transport.line WHERE line_number = 1) AND direction = 'outbound'),
@@ -209,7 +192,6 @@ INSERT INTO municipal_public_transport.stop_in_route (route_id, stop_id, stop_or
     ((SELECT route_id FROM municipal_public_transport.route WHERE line_id = (SELECT line_id FROM municipal_public_transport.line WHERE line_number = 1) AND direction = 'outbound'),
      (SELECT stop_id FROM municipal_public_transport.stop WHERE name = 'Kurdwanów P+R'), 7, 25);
 
--- Przystanki dla trasy 'inbound' linii 1
 INSERT INTO municipal_public_transport.stop_in_route (route_id, stop_id, stop_order, time_offset) VALUES
     -- Poprawne pobieranie route_id dla linii 1 i kierunku 'inbound'
     ((SELECT route_id FROM municipal_public_transport.route WHERE line_id = (SELECT line_id FROM municipal_public_transport.line WHERE line_number = 1) AND direction = 'inbound'),
@@ -260,12 +242,6 @@ INSERT INTO municipal_public_transport.stop_in_route (route_id, stop_id, stop_or
     ((SELECT route_id FROM municipal_public_transport.route WHERE line_id = (SELECT line_id FROM municipal_public_transport.line WHERE line_number = 69) AND direction = 'inbound'),
      (SELECT stop_id FROM municipal_public_transport.stop WHERE name = 'Mistrzejowice'), 7, 32);
 
--- Podobnie dodaj przystanki dla pozostałych tras...
-
-
-
-
--- Harmonogram dla trasy 'outbound' linii 1
 INSERT INTO municipal_public_transport.schedule (route_id, day, start_time, end_time, frequency) VALUES
     ((SELECT route_id FROM municipal_public_transport.route WHERE line_id = (SELECT line_id FROM municipal_public_transport.line WHERE line_number = 1) AND direction = 'outbound'),
      'mon-fri', '05:00', '23:00', 10),
@@ -274,7 +250,6 @@ INSERT INTO municipal_public_transport.schedule (route_id, day, start_time, end_
     ((SELECT route_id FROM municipal_public_transport.route WHERE line_id = (SELECT line_id FROM municipal_public_transport.line WHERE line_number = 1) AND direction = 'outbound'),
      'sun', '07:00', '22:00', 20);
 
--- Harmonogram dla trasy 'inbound' linii 1
 INSERT INTO municipal_public_transport.schedule (route_id, day, start_time, end_time, frequency) VALUES
     ((SELECT route_id FROM municipal_public_transport.route WHERE line_id = (SELECT line_id FROM municipal_public_transport.line WHERE line_number = 1) AND direction = 'inbound'),
      'mon-fri', '05:30', '23:30', 10),
@@ -283,7 +258,6 @@ INSERT INTO municipal_public_transport.schedule (route_id, day, start_time, end_
     ((SELECT route_id FROM municipal_public_transport.route WHERE line_id = (SELECT line_id FROM municipal_public_transport.line WHERE line_number = 1) AND direction = 'inbound'),
      'sun', '07:30', '22:30', 20);
 
--- Harmonogram dla trasy 'outbound' linii 69
 INSERT INTO municipal_public_transport.schedule (route_id, day, start_time, end_time, frequency) VALUES
     ((SELECT route_id FROM municipal_public_transport.route WHERE line_id = (SELECT line_id FROM municipal_public_transport.line WHERE line_number = 69) AND direction = 'outbound'),
      'mon-fri', '05:15', '22:45', 12),
@@ -292,7 +266,6 @@ INSERT INTO municipal_public_transport.schedule (route_id, day, start_time, end_
     ((SELECT route_id FROM municipal_public_transport.route WHERE line_id = (SELECT line_id FROM municipal_public_transport.line WHERE line_number = 69) AND direction = 'outbound'),
      'sun', '07:15', '22:15', 20);
 
--- Harmonogram dla trasy 'inbound' linii 69
 INSERT INTO municipal_public_transport.schedule (route_id, day, start_time, end_time, frequency) VALUES
     ((SELECT route_id FROM municipal_public_transport.route WHERE line_id = (SELECT line_id FROM municipal_public_transport.line WHERE line_number = 69) AND direction = 'inbound'),
      'mon-fri', '05:45', '23:15', 12),
@@ -302,7 +275,6 @@ INSERT INTO municipal_public_transport.schedule (route_id, day, start_time, end_
      'sun', '07:45', '22:45', 20);
 
 
--- Poniżej przykład dla jednego odjazdu
 INSERT INTO municipal_public_transport.departure (stop_in_route_id, schedule_id, departure_time)
 SELECT
     sir.stop_in_route_id,
