@@ -214,5 +214,6 @@ LEFT JOIN
 LEFT JOIN
     lab_6.ksiazka AS ksiazka ON wypozyczenia_ksiazka.ksiazka_id = ksiazka.ksiazka_id
 GROUP BY
-    czytelnik.nazwisko;
+    czytelnik.nazwisko,
+    czytelnik.czytelnik_id;
 
