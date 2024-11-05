@@ -302,5 +302,36 @@ FROM
 ORDER BY
     lvl, empname;
 
-
 --nazwisko pracownika, poziom w hierarchii i listę przełożonych
+WITH RECURSIVE EmployeeHierarchy AS (
+    SELECT
+        s.empno,
+        s.empname,
+        1 AS lvl,
+        '->' || s.empname AS path
+    FROM
+        lab_6.staff s
+    WHERE
+        s.mgrno IS NULL
+
+    UNION ALL
+
+    SELECT
+        e.empno,
+        e.empname,
+        eh.lvl + 1 AS lvl,
+        eh.path || '->' || e.empname AS path
+    FROM
+        lab_6.staff e
+    INNER JOIN
+        EmployeeHierarchy eh ON e.mgrno = eh.empno
+)
+
+SELECT
+    empname,
+    lvl,
+    path
+FROM
+    EmployeeHierarchy
+ORDER BY
+    lvl, empname;
