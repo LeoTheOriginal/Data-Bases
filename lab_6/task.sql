@@ -184,6 +184,7 @@ CREATE TABLE lab_6.staff ( empno INT, empname VARCHAR(20), mgrno INT ) ;
                        ( 116, 'Ostatni',       115),
                        ( 117, 'Lewy',   115)  ;
 
+--Proszę zapisać kwerendę krzyżową (CASE) tworzącą raport w postaci
 SELECT
     czytelnik.nazwisko AS Czytelnik,
     SUM(CASE WHEN ksiazka.tytul = 'Pan Tadeusz' THEN 1 ELSE 0 END) AS Pan_Tadeusz,
@@ -219,4 +220,38 @@ GROUP BY
 Order by
     nazwisko;
 
+--Proszę zapisać kwerendę z wyrażeniem tabelarycznym (CTE) zwracająca zestawienie w ile razy poszczególny czytelnik czytał każdą z książek (nazwisko_czytelnika, tytuł_ksiazki, ilosc_wypożyczeń)
+WITH liczba_wypozyczen AS (
+    SELECT
+        czytelnik.nazwisko AS nazwisko_czytelnika,
+        czytelnik.imie AS imie_czytelnika,
+        ksiazka.tytul AS tytul_ksiazki,
+        COUNT(wypozyczenia_ksiazka.wypozyczenia_id) AS ilosc_wypozyczen
+    FROM
+        lab_6.czytelnik AS czytelnik
+    CROSS JOIN
+        lab_6.ksiazka AS ksiazka
+    LEFT JOIN
+        lab_6.wypozyczenia AS wypozyczenia ON czytelnik.czytelnik_id = wypozyczenia.czytelnik_id
+    LEFT JOIN
+        lab_6.wypozyczenia_ksiazka AS wypozyczenia_ksiazka ON wypozyczenia.wypozyczenia_id = wypozyczenia_ksiazka.wypozyczenia_id
+            AND wypozyczenia_ksiazka.ksiazka_id = ksiazka.ksiazka_id
+    GROUP BY
+        czytelnik.nazwisko,
+        czytelnik.imie,
+        ksiazka.tytul
+)
 
+SELECT
+    nazwisko_czytelnika,
+    imie_czytelnika,
+    tytul_ksiazki,
+    ilosc_wypozyczen
+FROM
+    liczba_wypozyczen
+ORDER BY
+    nazwisko_czytelnika,
+    imie_czytelnika,
+    tytul_ksiazki;
+
+--nazwisko pracownika i jego przełożonego
