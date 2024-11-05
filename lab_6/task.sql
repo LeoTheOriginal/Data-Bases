@@ -267,3 +267,40 @@ LEFT JOIN
 ORDER BY
     emp.empno;
 
+
+-- Nazwisko pracownika, nazwisko bezpośredniego przełożonego i poziom w hierarchii
+WITH RECURSIVE EmployeeHierarchy AS (
+    SELECT
+        s.empno,
+        s.empname AS empname,
+        CAST(NULL AS VARCHAR(20)) AS mgrname,
+        1 AS lvl
+    FROM
+        lab_6.staff s
+    WHERE
+        s.mgrno IS NULL
+
+    UNION ALL
+
+    SELECT
+        e.empno,
+        e.empname AS empname,
+        eh.empname AS mgrname,
+        eh.lvl + 1 AS lvl
+    FROM
+        lab_6.staff e
+    INNER JOIN
+        EmployeeHierarchy eh ON e.mgrno = eh.empno
+)
+
+SELECT
+    empname,
+    mgrname,
+    lvl
+FROM
+    EmployeeHierarchy
+ORDER BY
+    lvl, empname;
+
+
+--nazwisko pracownika, poziom w hierarchii i listę przełożonych
