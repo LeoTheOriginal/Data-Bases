@@ -308,7 +308,7 @@ WITH RECURSIVE EmployeeHierarchy AS (
         s.empno,
         s.empname,
         1 AS lvl,
-        '->' || s.empname AS path
+        '' AS path
     FROM
         lab_6.staff s
     WHERE
@@ -320,7 +320,10 @@ WITH RECURSIVE EmployeeHierarchy AS (
         e.empno,
         e.empname,
         eh.lvl + 1 AS lvl,
-        eh.path || '->' || e.empname AS path
+        CASE
+            WHEN eh.path = '' THEN '->' || eh.empname
+            ELSE eh.path || '->' || eh.empname
+        END AS path
     FROM
         lab_6.staff e
     INNER JOIN
