@@ -255,3 +255,15 @@ ORDER BY
     tytul_ksiazki;
 
 --nazwisko pracownika i jego przełożonego
+SELECT
+    emp.empno AS emp_no,
+    emp.empname AS emp_name,
+    mgr.empno AS mgr_no,
+    mgr.empname AS mgr_name
+FROM
+    lab_6.staff AS emp
+LEFT JOIN
+    lab_6.staff AS mgr ON emp.mgrno = mgr.empno
+ORDER BY
+    emp.empno;
+
