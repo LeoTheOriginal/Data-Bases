@@ -325,3 +325,4 @@ SELECT rownanie_1(10,5,1) AS equ_solve;
 
 DROP FUNCTION populate_tablica_1(threshold INTEGER);
 DROP FUNCTION populate_tablica_2();
+DROP FUNCTION rownanie_1(a DOUBLE PRECISION, b DOUBLE PRECISION, c DOUBLE PRECISION);
