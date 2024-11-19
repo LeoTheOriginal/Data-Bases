@@ -2,7 +2,7 @@ drop schema if exists lab_8 cascade;
 
 create schema lab_8;
 
-SET DATESTYLE TO EUROPEAN ;
+SET DATESTYLE TO EUROPEAN;
 
 create table lab_8.czytelnik
 (
@@ -223,9 +223,8 @@ DECLARE
     ksiazka_ids INTEGER[];
     ksiazka_id_var INTEGER;
     wypozyczenia_count INTEGER;
-    pozyczenie_plus_var INTEGER; -- Renamed variable
+    pozyczenie_plus_var INTEGER;
 BEGIN
-    -- Collect ksiazka_id's that need to be processed
     ksiazka_ids := ARRAY[]::INTEGER[];
 
     IF (TG_OP = 'INSERT') THEN
@@ -237,24 +236,20 @@ BEGIN
         ksiazka_ids := array_append(ksiazka_ids, NEW.ksiazka_id);
     END IF;
 
-    -- Remove duplicates
     ksiazka_ids := ARRAY(SELECT DISTINCT unnest(ksiazka_ids));
 
     FOREACH ksiazka_id_var IN ARRAY ksiazka_ids LOOP
-        -- Calculate the total number of loans for this ksiazka_id
         SELECT COUNT(*) INTO wypozyczenia_count
         FROM lab_8.wypozyczenia_ksiazka
         WHERE ksiazka_id = ksiazka_id_var;
 
         IF wypozyczenia_count > threshold THEN
             pozyczenie_plus_var := wypozyczenia_count - threshold;
-            -- Upsert into tablica_1
             INSERT INTO lab_8.tablica_1 (ksiazka_id, granica, pozyczenie_plus)
             VALUES (ksiazka_id_var, threshold, pozyczenie_plus_var)
             ON CONFLICT (ksiazka_id) DO UPDATE
             SET granica = EXCLUDED.granica, pozyczenie_plus = EXCLUDED.pozyczenie_plus;
         ELSE
-            -- Remove from tablica_1 if exists
             DELETE FROM lab_8.tablica_1 WHERE ksiazka_id = ksiazka_id_var;
         END IF;
     END LOOP;
@@ -270,38 +265,108 @@ AFTER INSERT OR UPDATE OR DELETE ON lab_8.wypozyczenia_ksiazka
 FOR EACH ROW
 EXECUTE FUNCTION lab_8.update_tablica_1();
 
--- Step 1: Check the current state of tablica_1
+
 SELECT * FROM lab_8.tablica_1;
 
--- Step 2: Insert a new loan into 'wypozyczenia' table
--- Ensure that 'wypozyczenia_id' = 24 does not already exist
+
 INSERT INTO lab_8.wypozyczenia (wypozyczenia_id, czytelnik_id, data_wypozyczenia)
 VALUES (24, 1, '2024-04-15');
 
--- Step 3: Insert a new loan for ksiazka_id = 3
 INSERT INTO lab_8.wypozyczenia_ksiazka (wypozyczenia_id, ksiazka_id)
 VALUES (24, 3);
 
--- Step 4: Check if tablica_1 has been updated
 SELECT * FROM lab_8.tablica_1;
 
--- Step 5: Delete a loan for ksiazka_id = 2
--- Find an existing wypozyczenia_id for ksiazka_id = 2
+
 SELECT wypozyczenia_id FROM lab_8.wypozyczenia_ksiazka WHERE ksiazka_id = 2;
 
--- Suppose it returns wypozyczenia_id = 2
 DELETE FROM lab_8.wypozyczenia_ksiazka
 WHERE wypozyczenia_id = 2 AND ksiazka_id = 2;
 
--- Step 6: Check if tablica_1 reflects the deletion
 SELECT * FROM lab_8.tablica_1;
-
 
 
 -- Zadanie 2
 -- Proszę skonstruować trygger, który po każdych 2 przedłużeniach wypożyczenia o 7 dni zwiększa mnożnik kary czytelnika   o 2% - nie może być wyższa niż 100
---do tabeli czytelnik dodajemy kolumnę mnoznik, która przechowuje wartość procentową o jaką zwiększamy czytelnikowi karę za przetrzymywanie książek dłużej niż 7 dni
+-- do tabeli czytelnik dodajemy kolumnę mnoznik, która przechowuje wartość procentową o jaką zwiększamy czytelnikowi karę za przetrzymywanie książek dłużej niż 7 dni
 -- ALTER TABLE czytelnik ADD COLUMN mnoznik REAL DEFAULT 1 CHECK (mnoznik BETWEEN 1.0 AND 100.0); --dodajemy
+
+ALTER TABLE lab_8.czytelnik
+ADD COLUMN mnoznik REAL DEFAULT 1 CHECK (mnoznik BETWEEN 1.0 AND 100.0);
+
+ALTER TABLE lab_8.wypozyczenia
+ADD COLUMN liczba_przedluzen INTEGER DEFAULT 0;
+
+CREATE OR REPLACE FUNCTION lab_8.update_mnoznik() RETURNS TRIGGER AS $$
+DECLARE
+    interval_days INTEGER;
+    new_mnoznik REAL;
+BEGIN
+    IF OLD.data_zwrotu IS NOT NULL AND NEW.data_zwrotu IS NOT NULL THEN
+        interval_days := NEW.data_zwrotu - OLD.data_zwrotu;
+
+        -- Check if the extension is exactly 7 days
+        IF interval_days = 7 THEN
+            -- Increment the liczba_przedluzen counter
+            NEW.liczba_przedluzen := OLD.liczba_przedluzen + 1;
+
+            -- Every 2 extensions, increase the mnoznik by 2%
+            IF NEW.liczba_przedluzen % 2 = 0 THEN
+                -- Retrieve the current mnoznik for the reader
+                SELECT mnoznik INTO new_mnoznik FROM lab_8.czytelnik WHERE czytelnik_id = NEW.czytelnik_id;
+                -- Increase mnoznik by 2%
+                new_mnoznik := new_mnoznik + 0.02;
+                -- Ensure mnoznik does not exceed 100
+                IF new_mnoznik > 100.0 THEN
+                    new_mnoznik := 100.0;
+                END IF;
+                -- Update the mnoznik in the czytelnik table
+                UPDATE lab_8.czytelnik
+                SET mnoznik = new_mnoznik
+                WHERE czytelnik_id = NEW.czytelnik_id;
+            END IF;
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tr_update_mnoznik
+BEFORE UPDATE OF data_zwrotu ON lab_8.wypozyczenia
+FOR EACH ROW
+EXECUTE FUNCTION lab_8.update_mnoznik();
+
+SELECT czytelnik_id, mnoznik FROM lab_8.czytelnik WHERE czytelnik_id = 1;
+
+SELECT wypozyczenia_id, liczba_przedluzen, data_zwrotu FROM lab_8.wypozyczenia WHERE wypozyczenia_id = 1;
+
+UPDATE lab_8.wypozyczenia
+SET data_zwrotu = data_zwrotu + 7
+WHERE wypozyczenia_id = 1;
+
+SELECT liczba_przedluzen FROM lab_8.wypozyczenia WHERE wypozyczenia_id = 1;
+
+UPDATE lab_8.wypozyczenia
+SET data_zwrotu = data_zwrotu + 7
+WHERE wypozyczenia_id = 1;
+
+SELECT liczba_przedluzen FROM lab_8.wypozyczenia WHERE wypozyczenia_id = 1;
+SELECT mnoznik FROM lab_8.czytelnik WHERE czytelnik_id = 1;
+
+SELECT czytelnik_id, mnoznik FROM lab_8.czytelnik WHERE czytelnik_id = 1;
+
+UPDATE lab_8.wypozyczenia
+SET data_zwrotu = data_zwrotu + 7
+WHERE wypozyczenia_id = 1;
+
+UPDATE lab_8.wypozyczenia
+SET data_zwrotu = data_zwrotu + 7
+WHERE wypozyczenia_id = 1;
+
+SELECT liczba_przedluzen FROM lab_8.wypozyczenia WHERE wypozyczenia_id = 1;
+SELECT mnoznik FROM lab_8.czytelnik WHERE czytelnik_id = 1;
+
+
 
 
 
