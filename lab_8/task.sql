@@ -223,7 +223,7 @@ DECLARE
     ksiazka_ids INTEGER[];
     ksiazka_id_var INTEGER;
     wypozyczenia_count INTEGER;
-    pozyczenie_plus INTEGER;
+    pozyczenie_plus_var INTEGER; -- Renamed variable
 BEGIN
     -- Collect ksiazka_id's that need to be processed
     ksiazka_ids := ARRAY[]::INTEGER[];
@@ -247,12 +247,12 @@ BEGIN
         WHERE ksiazka_id = ksiazka_id_var;
 
         IF wypozyczenia_count > threshold THEN
-            pozyczenie_plus := wypozyczenia_count - threshold;
+            pozyczenie_plus_var := wypozyczenia_count - threshold;
             -- Upsert into tablica_1
             INSERT INTO lab_8.tablica_1 (ksiazka_id, granica, pozyczenie_plus)
-            VALUES (ksiazka_id_var, threshold, pozyczenie_plus)
+            VALUES (ksiazka_id_var, threshold, pozyczenie_plus_var)
             ON CONFLICT (ksiazka_id) DO UPDATE
-            SET granica = threshold, pozyczenie_plus = pozyczenie_plus;
+            SET granica = EXCLUDED.granica, pozyczenie_plus = EXCLUDED.pozyczenie_plus;
         ELSE
             -- Remove from tablica_1 if exists
             DELETE FROM lab_8.tablica_1 WHERE ksiazka_id = ksiazka_id_var;
@@ -263,29 +263,37 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS tr_update_tablica_1 ON lab_8.wypozyczenia_ksiazka;
+
 CREATE TRIGGER tr_update_tablica_1
 AFTER INSERT OR UPDATE OR DELETE ON lab_8.wypozyczenia_ksiazka
 FOR EACH ROW
 EXECUTE FUNCTION lab_8.update_tablica_1();
 
--- Before making changes, check the current state of tablica_1
+-- Step 1: Check the current state of tablica_1
 SELECT * FROM lab_8.tablica_1;
 
--- Insert a new loan for ksiazka_id = 3
+-- Step 2: Insert a new loan into 'wypozyczenia' table
+-- Ensure that 'wypozyczenia_id' = 24 does not already exist
 INSERT INTO lab_8.wypozyczenia (wypozyczenia_id, czytelnik_id, data_wypozyczenia)
 VALUES (24, 1, '2024-04-15');
+
+-- Step 3: Insert a new loan for ksiazka_id = 3
 INSERT INTO lab_8.wypozyczenia_ksiazka (wypozyczenia_id, ksiazka_id)
 VALUES (24, 3);
 
-
--- Check if tablica_1 has been updated
+-- Step 4: Check if tablica_1 has been updated
 SELECT * FROM lab_8.tablica_1;
 
--- Delete a loan for ksiazka_id = 2
-DELETE FROM lab_8.wypozyczenia_ksiazka
-WHERE wypozyczenia_id = 23 AND ksiazka_id = 2;
+-- Step 5: Delete a loan for ksiazka_id = 2
+-- Find an existing wypozyczenia_id for ksiazka_id = 2
+SELECT wypozyczenia_id FROM lab_8.wypozyczenia_ksiazka WHERE ksiazka_id = 2;
 
--- Check if tablica_1 reflects the deletion
+-- Suppose it returns wypozyczenia_id = 2
+DELETE FROM lab_8.wypozyczenia_ksiazka
+WHERE wypozyczenia_id = 2 AND ksiazka_id = 2;
+
+-- Step 6: Check if tablica_1 reflects the deletion
 SELECT * FROM lab_8.tablica_1;
 
 
