@@ -305,22 +305,15 @@ BEGIN
     IF OLD.data_zwrotu IS NOT NULL AND NEW.data_zwrotu IS NOT NULL THEN
         interval_days := NEW.data_zwrotu - OLD.data_zwrotu;
 
-        -- Check if the extension is exactly 7 days
         IF interval_days = 7 THEN
-            -- Increment the liczba_przedluzen counter
             NEW.liczba_przedluzen := OLD.liczba_przedluzen + 1;
 
-            -- Every 2 extensions, increase the mnoznik by 2%
             IF NEW.liczba_przedluzen % 2 = 0 THEN
-                -- Retrieve the current mnoznik for the reader
                 SELECT mnoznik INTO new_mnoznik FROM lab_8.czytelnik WHERE czytelnik_id = NEW.czytelnik_id;
-                -- Increase mnoznik by 2%
                 new_mnoznik := new_mnoznik + 2;
-                -- Ensure mnoznik does not exceed 100
                 IF new_mnoznik > 100.0 THEN
                     new_mnoznik := 100.0;
                 END IF;
-                -- Update the mnoznik in the czytelnik table
                 UPDATE lab_8.czytelnik
                 SET mnoznik = new_mnoznik
                 WHERE czytelnik_id = NEW.czytelnik_id;
@@ -366,13 +359,58 @@ WHERE wypozyczenia_id = 1;
 SELECT liczba_przedluzen FROM lab_8.wypozyczenia WHERE wypozyczenia_id = 1;
 SELECT mnoznik FROM lab_8.czytelnik WHERE czytelnik_id = 1;
 
-
-
-
-
-
 -- Zadanie 3
 -- Proszę skonstruować trygger, który zapewnienia integralność danych
 -- Próba usunięcia czytelnika z tabeli czytelnik
 -- w przypadku, gdy ma on niezakończone wypożyczenie  nie może  zostać usunięty  - należy wygenerować stosowny komunikat
 -- w przypadku, gdy wszystkie wypożyczenia zostały zakończone usuwamy go wraz z cala jego historią
+
+CREATE OR REPLACE FUNCTION lab_8.check_czytelnik_deletion() RETURNS TRIGGER AS $$
+DECLARE
+    open_loans_count INTEGER;
+BEGIN
+    SELECT COUNT(*) INTO open_loans_count
+    FROM lab_8.wypozyczenia
+    WHERE czytelnik_id = OLD.czytelnik_id AND data_zwrotu IS NULL;
+
+    IF open_loans_count > 0 THEN
+        RAISE EXCEPTION 'Cannot delete reader with ID %: they have open loans.', OLD.czytelnik_id;
+    ELSE
+
+        DELETE FROM lab_8.wypozyczenia_ksiazka
+        WHERE wypozyczenia_id IN (
+            SELECT wypozyczenia_id FROM lab_8.wypozyczenia WHERE czytelnik_id = OLD.czytelnik_id
+        );
+
+        DELETE FROM lab_8.wypozyczenia
+        WHERE czytelnik_id = OLD.czytelnik_id;
+
+    END IF;
+
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER tr_check_czytelnik_deletion
+BEFORE DELETE ON lab_8.czytelnik
+FOR EACH ROW
+EXECUTE FUNCTION lab_8.check_czytelnik_deletion();
+
+SELECT * FROM lab_8.wypozyczenia WHERE czytelnik_id = 2;
+
+SELECT * FROM lab_8.wypozyczenia WHERE czytelnik_id = 2 AND data_zwrotu IS NULL;
+
+DELETE FROM lab_8.czytelnik WHERE czytelnik_id = 2;
+
+SELECT * FROM lab_8.czytelnik WHERE czytelnik_id = 2;
+
+SELECT * FROM lab_8.wypozyczenia WHERE czytelnik_id = 6;
+
+SELECT * FROM lab_8.wypozyczenia WHERE czytelnik_id = 6 AND data_zwrotu IS NULL;
+
+DELETE FROM lab_8.czytelnik WHERE czytelnik_id = 6;
+
+SELECT * FROM lab_8.czytelnik WHERE czytelnik_id = 6;
+
+SELECT * FROM lab_8.wypozyczenia WHERE czytelnik_id = 6;
+
