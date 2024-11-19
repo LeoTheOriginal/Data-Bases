@@ -315,7 +315,7 @@ BEGIN
                 -- Retrieve the current mnoznik for the reader
                 SELECT mnoznik INTO new_mnoznik FROM lab_8.czytelnik WHERE czytelnik_id = NEW.czytelnik_id;
                 -- Increase mnoznik by 2%
-                new_mnoznik := new_mnoznik + 0.02;
+                new_mnoznik := new_mnoznik + 2;
                 -- Ensure mnoznik does not exceed 100
                 IF new_mnoznik > 100.0 THEN
                     new_mnoznik := 100.0;
