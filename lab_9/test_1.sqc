@@ -1,0 +1,158 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "db_connection.h"
+
+EXEC SQL INCLUDE sqlca;
+
+void handle_error();
+
+EXEC SQL BEGIN DECLARE SECTION;
+    char db[100];
+    char usr[100];
+    char pas[100];
+
+    int input_czytelnik_id;
+
+    int ksiazka_id;
+    char tytul[200];
+
+    char imie[50];
+    char nazwisko[50];
+
+    char *czytelnik_id_str;
+
+    char json_output[20000];
+
+    char title_query[1000];
+    char readers_query[1000];
+EXEC SQL END DECLARE SECTION;
+
+int main(int argc, char *argv[]) {
+    EXEC SQL WHENEVER SQLERROR DO handle_error();
+
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <czytelnik_id>\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    czytelnik_id_str = argv[1];
+    input_czytelnik_id = atoi(czytelnik_id_str);
+
+    strncpy(db, DB_HOST, sizeof(db));
+    strncpy(usr, DB_USER, sizeof(usr));
+
+    if (DB_PASS && strlen(DB_PASS) > 0) {
+        strncpy(pas, DB_PASS, sizeof(pas));
+    } else {
+        printf("Enter database password: ");
+        fgets(pas, sizeof(pas), stdin);
+        size_t len = strlen(pas);
+        if (len > 0 && pas[len - 1] == '\n') {
+            pas[len - 1] = '\0';
+        }
+    }
+
+    EXEC SQL CONNECT TO :db AS con1 USER :usr USING :pas;
+
+    printf("Connection successful!\n");
+    printf("current database=%s \n", db);
+
+    if (sqlca.sqlcode != 0) {
+        fprintf(stderr, "Cannot connect to database: %s\n", sqlca.sqlerrm.sqlerrmc);
+        exit(EXIT_FAILURE);
+    }
+
+    strcpy(json_output, "[\n");
+
+    /* Przygotowanie zapytań SQL */
+    sprintf(title_query,
+        "SELECT DISTINCT ks.ksiazka_id, ks.tytul "
+        "FROM lab_9.ksiazka ks "
+        "JOIN lab_9.wypozyczenia_ksiazka wk ON ks.ksiazka_id = wk.ksiazka_id "
+        "JOIN lab_9.wypozyczenia w ON wk.wypozyczenia_id = w.wypozyczenia_id "
+        "WHERE w.czytelnik_id = ?");
+
+    sprintf(readers_query,
+        "SELECT DISTINCT c.imie, c.nazwisko "
+        "FROM lab_9.czytelnik c "
+        "JOIN lab_9.wypozyczenia w ON c.czytelnik_id = w.czytelnik_id "
+        "JOIN lab_9.wypozyczenia_ksiazka wk ON w.wypozyczenia_id = wk.wypozyczenia_id "
+        "WHERE wk.ksiazka_id = ? AND c.czytelnik_id != ?");
+
+    EXEC SQL PREPARE title_stmt FROM :title_query;
+    EXEC SQL PREPARE readers_stmt FROM :readers_query;
+
+    EXEC SQL DECLARE title_cursor CURSOR FOR title_stmt;
+    EXEC SQL DECLARE readers_cursor CURSOR FOR readers_stmt;
+
+    EXEC SQL OPEN title_cursor USING :input_czytelnik_id;
+
+    while (1) {
+        EXEC SQL FETCH title_cursor INTO :ksiazka_id, :tytul;
+        if (sqlca.sqlcode == 100) {
+            break;
+        } else if (sqlca.sqlcode != 0) {
+            fprintf(stderr, "Error fetching titles: %s\n", sqlca.sqlerrm.sqlerrmc);
+            exit(EXIT_FAILURE);
+        }
+
+        char title_json[8000];
+        char readers_json[8000];
+        int reader_count = 0;
+
+        strcpy(readers_json, "    \"czytelnicy\": [\n");
+
+        EXEC SQL OPEN readers_cursor USING :ksiazka_id, :input_czytelnik_id;
+
+        while (1) {
+            EXEC SQL FETCH readers_cursor INTO :imie, :nazwisko;
+            if (sqlca.sqlcode == 100) {
+                break;
+            } else if (sqlca.sqlcode != 0) {
+                fprintf(stderr, "Error fetching readers: %s\n", sqlca.sqlerrm.sqlerrmc);
+                exit(EXIT_FAILURE);
+            }
+
+            char reader_info[200];
+            sprintf(reader_info, "      {\"imie\": \"%s\", \"nazwisko\": \"%s\"}", imie, nazwisko);
+            if (reader_count > 0) {
+                strcat(readers_json, ",\n");
+            }
+            strcat(readers_json, reader_info);
+            reader_count++;
+        }
+
+        EXEC SQL CLOSE readers_cursor;
+
+        if (reader_count > 0) {
+            strcat(readers_json, "\n    ]");
+
+            sprintf(title_json, "  {\n    \"tytul\": \"%s\",\n    \"ilosc_czytelnikow\": %d,\n%s\n  }", tytul, reader_count, readers_json);
+
+            if (strlen(json_output) > 2) {
+                strcat(json_output, ",\n");
+            }
+            strcat(json_output, title_json);
+        }
+    }
+
+    EXEC SQL CLOSE title_cursor;
+
+    strcat(json_output, "\n]\n");
+
+    printf("%s\n", json_output);
+
+    EXEC SQL DISCONNECT ALL;
+
+    memset(pas, 0, sizeof(pas));
+
+    return 0;
+}
+
+void handle_error() {
+    fprintf(stderr, "Database error: %s\n", sqlca.sqlerrm.sqlerrmc);
+    EXEC SQL WHENEVER SQLERROR CONTINUE;
+    EXEC SQL DISCONNECT ALL;
+    exit(EXIT_FAILURE);
+}
