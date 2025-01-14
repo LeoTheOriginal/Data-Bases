@@ -93,14 +93,14 @@ INSERT INTO dzial (nazwa, lokal) VALUES
 
 INSERT INTO projekt (nazwa, start, koniec) VALUES
     ('Projekt_A', DATE '2024-01-10', DATE '2024-06-10'),
-    ('Projekt_B', DATE '2024-03-01', NULL),        -- w toku
+    ('Projekt_B', DATE '2024-03-01', NULL),
     ('Projekt_C', DATE '2023-11-05', DATE '2024-01-20');
 
 INSERT INTO pracownik (nazwisko, stanowisko, manager_id, staz, wynagrodzenie, prowizja, dzial_id, stopien_id)
   VALUES
-    ('Kowalski', 'Specjalista',  NULL,  2,  1500.0,  30,  1,  1),  -- Kowalski w dziale 1 (Handlowym), stopien 1
+    ('Kowalski', 'Specjalista',  NULL,  2,  1500.0,  30,  1,  1),
     ('Nowak',    'Dyrektor',     NULL, 10,  4500.0,  25,  1,  NULL),
-    ('Iksiński', 'Programista',  2,    4,  2800.0,  20,  2,  2),  -- manager_id = 2 -> Nowak
+    ('Iksiński', 'Programista',  2,    4,  2800.0,  20,  2,  2),
     ('Wójcik',   'Analityk',     2,    3,  3200.0,  50,  2,  3),
     ('Lewandowski','Researcher', 2,    5,  1800.0,  60,  3,  1);
 
@@ -145,7 +145,7 @@ JOIN projekt pr ON pp.projekt_id = pr.projekt_id
 GROUP BY p.pracownik_id, p.nazwisko
 ORDER BY p.pracownik_id;
 
--- 3. lista pracowników (id , nazwisko), którzy byli zatrudnieni w co najmniej dwóch projektach, w których  było zatrudnionych co najmniej dwóch różnych  pracowników
+-- 3. lista pracowników (id, nazwisko), którzy byli zatrudnieni w co najmniej dwóch projektach, w których było zatrudnionych co najmniej dwóch różnych pracowników
 WITH Projekty_z_wieloma AS (
   SELECT pp.projekt_id
   FROM pracownik_projekt pp
@@ -216,7 +216,7 @@ FROM projekt
 WHERE koniec IS NULL
   AND (CURRENT_DATE - start) > 15;
 
--- 8. w ilu projektach brały udział osoby z poszczególnych grup zaszeregowania (stopien_zaszeregowania , ilosc_projektów)
+-- 8. w ilu projektach brały udział osoby z poszczególnych grup zaszeregowania (stopien_zaszeregowania, ilosc_projektów)
 SELECT s.stopien_id AS stopien_zaszeregowania,
        COUNT(DISTINCT pp.projekt_id) AS ilosc_projektow
 FROM stopien s
