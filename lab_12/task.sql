@@ -1,9 +1,12 @@
--- Najpierw (opcjonalnie) utwórz schemat i przełącz się na niego
+---------------------------------------
+-- Zadanie 1
+---------------------------------------
+
 CREATE SCHEMA IF NOT EXISTS lab_12;
 SET search_path TO lab_12;
 
 -----------------------
--- Tabela DZIAL
+-- 1. Tworzenie Tabel
 -----------------------
 DROP TABLE IF EXISTS dzial CASCADE;
 CREATE TABLE dzial (
@@ -12,9 +15,6 @@ CREATE TABLE dzial (
     lokal        VARCHAR(32) NOT NULL
 );
 
------------------------
--- Tabela STOPIEN
------------------------
 DROP TABLE IF EXISTS stopien CASCADE;
 CREATE TABLE stopien (
     stopien_id          SERIAL PRIMARY KEY,
@@ -24,9 +24,6 @@ CREATE TABLE stopien (
     CONSTRAINT check_minmax  CHECK (min_wynagrodzenia < max_wynagrodzenia)
 );
 
------------------------
--- Tabela PROJEKT
------------------------
 DROP TABLE IF EXISTS projekt CASCADE;
 CREATE TABLE projekt (
     projekt_id  SERIAL PRIMARY KEY,
@@ -35,9 +32,6 @@ CREATE TABLE projekt (
     koniec      DATE
 );
 
------------------------
--- Tabela PRACOWNIK
------------------------
 DROP TABLE IF EXISTS pracownik CASCADE;
 CREATE TABLE pracownik (
     pracownik_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -75,9 +69,7 @@ ALTER TABLE pracownik
     FOREIGN KEY (stopien_id)
     REFERENCES stopien(stopien_id);
 
------------------------
 -- PRACOWNIK_PROJEKT (relacja N:M)
------------------------
 DROP TABLE IF EXISTS pracownik_projekt CASCADE;
 CREATE TABLE pracownik_projekt (
     pracownik_id INTEGER NOT NULL,
@@ -88,7 +80,7 @@ CREATE TABLE pracownik_projekt (
 );
 
 ---------------------------------------
--- Wypełnianie przykładowymi danymi
+-- 2. Wypełnianie przykładowymi danymi
 ---------------------------------------
 INSERT INTO stopien (min_wynagrodzenia, max_wynagrodzenia) VALUES (1000.00, 1999.99);
 INSERT INTO stopien (min_wynagrodzenia, max_wynagrodzenia) VALUES (2000.00, 2999.99);
@@ -125,7 +117,7 @@ INSERT INTO pracownik_projekt (pracownik_id, projekt_id) VALUES
 ---------------------------------------
 -- Zadanie 2
 ---------------------------------------
--- 1. ilość osób zatrudnionych na poszczególnym zaszeregowaniu - zestawienie ilość_osób , stopien_zaszeregowania
+-- 1. ilość osób zatrudnionych na poszczególnym zaszeregowaniu-zestawienie ilość_osób, stopien_zaszeregowania
 SELECT s.stopien_id AS stopien_zaszeregowania,
        COUNT(p.pracownik_id) AS liczba_osob
 FROM stopien s
@@ -142,7 +134,7 @@ SELECT s.stopien_id,
  GROUP BY s.stopien_id, s.min_wynagrodzenia, s.max_wynagrodzenia
  ORDER BY s.stopien_id;
 
--- 2. dla każdego pracownika (id , nazwisko) zestawienie ilość_projektow_ukonczonych i ilość_projektow_nieukonczonych (sumarycznie)
+-- 2. dla każdego pracownika (id, nazwisko) zestawienie ilość_projektow_ukonczonych i ilość_projektow_nieukonczonych (sumarycznie)
 SELECT p.pracownik_id,
        p.nazwisko,
        SUM(CASE WHEN pr.koniec IS NOT NULL THEN 1 ELSE 0 END) AS liczba_ukonczonych,
